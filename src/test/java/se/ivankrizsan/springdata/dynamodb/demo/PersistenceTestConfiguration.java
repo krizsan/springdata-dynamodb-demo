@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
+import org.testcontainers.utility.DockerImageName;
 
 /**
  * Persistence configuration used by tests.
@@ -41,7 +42,7 @@ public class PersistenceTestConfiguration {
     @Bean
     public GenericContainer dynamoDBContainer() {
         final GenericContainer theDynamoDBContainer =
-            new GenericContainer("amazon/dynamodb-local:latest")
+            new GenericContainer(DockerImageName.parse("amazon/dynamodb-local:latest"))
                 .withExposedPorts(DYNAMODB_PORT);
         theDynamoDBContainer.waitingFor(new HostPortWaitStrategy());
         theDynamoDBContainer.start();

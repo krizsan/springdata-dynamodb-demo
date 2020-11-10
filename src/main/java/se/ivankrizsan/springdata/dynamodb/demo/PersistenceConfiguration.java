@@ -32,7 +32,14 @@ public class PersistenceConfiguration {
     protected String mDynamoDBSecretKey;
     @Value("${amazon.dynamodb.tablenameprefix}")
     protected String mDynamoDBTableNamePrefix;
+    @Value("${amazon.dynamodb.region}")
+    protected String mDynamoDBRegion;
 
+    /**
+     * Creates a bean containing basic AWS credentials.
+     *
+     * @return AWS credentials bean.
+     */
     @Bean
     public AWSCredentials dynamoDBCredentials() {
         return new BasicAWSCredentials(mDynamoDBAccessKey, mDynamoDBSecretKey);
@@ -52,7 +59,7 @@ public class PersistenceConfiguration {
             .standard()
             .withCredentials(new AWSStaticCredentialsProvider(inDynamoDBCredentials))
             .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(mDynamoDBEndpoint,
-                ""))
+                mDynamoDBRegion))
             .build();
     }
 

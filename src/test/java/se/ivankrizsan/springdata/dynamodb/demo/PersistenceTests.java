@@ -7,7 +7,6 @@ import com.amazonaws.services.dynamodbv2.model.GlobalSecondaryIndex;
 import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.ResourceInUseException;
 import org.apache.commons.collections4.IterableUtils;
-import org.junit.Assert;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +22,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.zip.GZIPInputStream;
@@ -88,7 +86,7 @@ class PersistenceTests {
 
         /* Persist the circle. */
         final Circle thePersistedCircle = mCirclesRepository.save(theOriginalCircle);
-        LOGGER.info("Cirlce last accessed time: {}", thePersistedCircle.getLastAccessedTime());
+        LOGGER.info("Circle last updated time: {}", thePersistedCircle.getLastUpdateTime());
 
         Thread.sleep(2000);
         /* Find all circles in the repository. */
@@ -99,7 +97,7 @@ class PersistenceTests {
             1,
             theCirclesList.size(), "One circle should have been persisted");
         final Circle theFoundCircle = theCirclesList.get(0);
-        LOGGER.info("Found circle last accessed time: {}", theFoundCircle.getLastAccessedTime());
+        LOGGER.info("Found circle last updated time: {}", theFoundCircle.getLastUpdateTime());
         Assertions.assertEquals(
             CIRCLE_COLOUR,
             theFoundCircle.getColour(), "The colour of the retrieved circle should match");
