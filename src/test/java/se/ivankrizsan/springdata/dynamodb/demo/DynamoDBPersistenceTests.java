@@ -17,23 +17,22 @@ import org.springframework.boot.test.context.SpringBootTest;
 import se.ivankrizsan.springdata.dynamodb.domain.Circle;
 import se.ivankrizsan.springdata.dynamodb.repositories.CirclesRepository;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
-import java.util.UUID;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
+import java.util.Map;
 
+/**
+ * Examples of persistence in DynamoDB with Spring Data DynamoDB.
+ *
+ * @author Ivan Krizsan
+ */
 @SpringBootTest(classes = {
     PersistenceConfiguration.class,
     PersistenceTestConfiguration.class
 })
-class PersistenceTests {
+class DynamoDBPersistenceTests {
     /* Constant(s): */
-    private static final Logger LOGGER = LoggerFactory.getLogger(PersistenceTests.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DynamoDBPersistenceTests.class);
     protected final static int CIRCLE_RADIUS = 11;
     protected final static String CIRCLE_COLOUR = "blue";
     protected final static int MANY_CIRCLES_COUNT = 2000;
@@ -46,9 +45,16 @@ class PersistenceTests {
     @Autowired
     protected AmazonDynamoDB mAmazonDynamoDB;
 
+    /**
+     * Prepares for each test by creating a table in DynamoDB for {@code Circle} entities
+     * and set provisioned throughput for global secondary indexes.
+     * In addition, delete all {@code Circle} entities as to ensure that the table is
+     * empty before executing a test.
+     */
     @BeforeEach
     public void setup() {
         try {
+            /* Prepare create table request. */
             final CreateTableRequest theCreateCirclesTableRequest =
                 mDynamoDBMapper.generateCreateTableRequest(Circle.class);
             final ProvisionedThroughput theCirclesTableProvisionedThroughput =
@@ -65,19 +71,24 @@ class PersistenceTests {
                     .forEach(v -> v.setProvisionedThroughput(theCirclesTableProvisionedThroughput));
             }
 
+            /* Create table in which to persist circles. */
             mAmazonDynamoDB.createTable(theCreateCirclesTableRequest);
         } catch (final ResourceInUseException theException) {
             LOGGER.debug("Exception occurred creating table", theException);
         }
 
+        /* Delete any circles remaining from previous tests. */
         mDynamoDBMapper.batchDelete(mCirclesRepository.findAll());
     }
 
     /**
-     * Tests persisting and retrieving one circle.
+     * Tests persisting one circle and retrieving all circles.
+     * Expected result:
+     * Retrieving all circles should yield one single circle.
+     * The retrieved circle should be identical to the persisted one.
      */
     @Test
-    public void persistOneCircleTest() throws InterruptedException {
+    public void persistOneCircleTest() {
         /* Create a circle to be persisted. */
         final Circle theOriginalCircle = new Circle();
         theOriginalCircle.setRadius(CIRCLE_RADIUS);
@@ -85,10 +96,9 @@ class PersistenceTests {
         theOriginalCircle.setColour(CIRCLE_COLOUR);
 
         /* Persist the circle. */
-        final Circle thePersistedCircle = mCirclesRepository.save(theOriginalCircle);
-        LOGGER.info("Circle last updated time: {}", thePersistedCircle.getLastUpdateTime());
+        final Circle theExpectedCircle = mCirclesRepository.save(theOriginalCircle);
+        LOGGER.info("Circle last updated time: {}", theExpectedCircle.getLastUpdateTime());
 
-        Thread.sleep(2000);
         /* Find all circles in the repository. */
         final List<Circle> theCirclesList = IterableUtils.toList(mCirclesRepository.findAll());
 
@@ -98,85 +108,46 @@ class PersistenceTests {
             theCirclesList.size(), "One circle should have been persisted");
         final Circle theFoundCircle = theCirclesList.get(0);
         LOGGER.info("Found circle last updated time: {}", theFoundCircle.getLastUpdateTime());
-        Assertions.assertEquals(
-            CIRCLE_COLOUR,
-            theFoundCircle.getColour(), "The colour of the retrieved circle should match");
-        Assertions.assertEquals(
-            CIRCLE_RADIUS,
-            theFoundCircle.getRadius(), "The radius of the retrieved circle should match");
-        Assertions.assertNotNull(
-            theFoundCircle.getId(), "The retrieved circle should have been assigned an id");
+        Assertions.assertEquals(theExpectedCircle, theFoundCircle, "Circle properties should match");
     }
 
+    /**
+     * Tests persisting many circles and retrieving all circles.
+     * Expected result:
+     * Retrieving all circles should yield the same number of circles as persisted.
+     * The retrieved circles should be identical to the persisted ones.
+     */
     @Test
     public void persistManyCirclesTest() {
-        final String theCacheKey = UUID.randomUUID().toString();
         /* Persist the circles. */
+        final Map<Integer, Circle> thePersistedCircles = new HashMap<>();
         for (int i = 1; i < MANY_CIRCLES_COUNT + 1; i++) {
             /* Create a circle to be persisted. */
             final Circle theOriginalCircle = new Circle();
-            theOriginalCircle.setPosition(12, 14);
+            theOriginalCircle.setPosition(12 + i, 14 + i);
             theOriginalCircle.setColour(CIRCLE_COLOUR);
             theOriginalCircle.setRadius(i);
 
-            mCirclesRepository.save(theOriginalCircle);
+            final Circle thePersistedCircle = mCirclesRepository.save(theOriginalCircle);
+
+            /* Use the radius as key as each circle has a different radius. */
+            thePersistedCircles.put(thePersistedCircle.getRadius(), thePersistedCircle);
         }
 
         /* Find all circles in the repository. */
-        final List<Circle> theCirclesList = IterableUtils.toList(mCirclesRepository.findAll());
+        final List<Circle> theFoundCircles = IterableUtils.toList(mCirclesRepository.findAll());
 
         /* Verify the number of persisted circles. */
         Assertions.assertEquals(
             MANY_CIRCLES_COUNT,
-            theCirclesList.size(), "A lot of circles should have been persisted");
-    }
+            theFoundCircles.size(), "A lot of circles should have been persisted");
 
-    private static ByteBuffer compressString(final String inStringToCompress) throws IOException {
-        return compressBytes(inStringToCompress.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static ByteBuffer compressBytes(final byte[] inBytesToCompress) throws IOException {
-        final byte[] theCompressedBytes;
-        try (
-            ByteArrayOutputStream theByteArrayOutputStream = new ByteArrayOutputStream();
-            GZIPOutputStream theGzipOutputStream = new GZIPOutputStream(theByteArrayOutputStream)) {
-            theGzipOutputStream.write(inBytesToCompress);
-            theGzipOutputStream.finish();
-            theCompressedBytes = theByteArrayOutputStream.toByteArray();
-        }
-
-        final ByteBuffer theCompressedDataByteBuffer =
-            ByteBuffer.allocate(theCompressedBytes.length);
-        theCompressedDataByteBuffer.put(theCompressedBytes, 0, theCompressedBytes.length);
-        theCompressedDataByteBuffer.position(0);
-        return theCompressedDataByteBuffer;
-    }
-
-    private static String uncompressString(ByteBuffer inCompressedDataBuffer) throws IOException {
-        return new String(uncompressBytes(inCompressedDataBuffer), StandardCharsets.UTF_8);
-    }
-
-    private static byte[] uncompressBytes(final ByteBuffer inCompressedDataBuffer)
-        throws IOException {
-        return uncompressBytes(inCompressedDataBuffer.array());
-    }
-
-    private static byte[] uncompressBytes(final byte[] inCompressedData) throws IOException {
-        try (
-            ByteArrayInputStream theCompressedDataInputStream = new ByteArrayInputStream(
-                inCompressedData);
-            ByteArrayOutputStream theUncompressedDataOutputStream = new ByteArrayOutputStream();
-            GZIPInputStream theGzipInputStream = new GZIPInputStream(theCompressedDataInputStream)) {
-
-            int theChunkSize = 1024;
-            byte[] theBuffer = new byte[theChunkSize];
-            int theUncompressedDataLength;
-            while ((theUncompressedDataLength = theGzipInputStream.read(theBuffer, 0, theChunkSize))
-                != -1) {
-                theUncompressedDataOutputStream.write(theBuffer, 0, theUncompressedDataLength);
-            }
-
-            return theUncompressedDataOutputStream.toByteArray();
+        /* Verify properties of the circles. */
+        for (Circle theActualCircle : theFoundCircles) {
+            final Circle theExpectedCircle = thePersistedCircles.get(theActualCircle.getRadius());
+            Assertions.assertEquals(theExpectedCircle,
+                theActualCircle,
+                "Circle properties should match");
         }
     }
 }
