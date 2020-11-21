@@ -35,7 +35,7 @@
         <dependency>
             <groupId>com.github.derjust</groupId>
             <artifactId>spring-data-dynamodb</artifactId>
-            <!-- Version 5.1.0 is buggy. -->
+            <!-- Version 5.1.0 doesn't seem quite right. -->
             <version>5.0.4</version>
         </dependency>
         <dependency>
