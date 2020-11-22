@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.3.4.RELEASE</version>
+        <version>2.3.6.RELEASE</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>se.ivankrizsan.springdata.dynamodb</groupId>
@@ -17,14 +17,7 @@
 
     <properties>
         <java.version>11</java.version>
-        <!--
-            Need version 1.15.0-rc2 since version 1.14.3 is not able to properly start
-            the Ryuk helper container when gRPC FUSE for file sharing is enabled
-            in Docker Desktop for Macintosh.
-            If disabling gRPC FUSE file sharing in the Docker Desktop preferences,
-            then version 1.14.3 works too with Docker Desktop for Macintosh.
-        -->
-        <testcontainers.version>1.15.0-rc2</testcontainers.version>
+        <testcontainers.version>1.15.0</testcontainers.version>
     </properties>
 
     <dependencies>
