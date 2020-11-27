@@ -15,7 +15,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import se.ivankrizsan.springdata.dynamodb.domain.Circle;
+import se.ivankrizsan.springdata.dynamodb.domain.Rectangle;
 import se.ivankrizsan.springdata.dynamodb.repositories.CirclesRepository;
+import se.ivankrizsan.springdata.dynamodb.repositories.RectanglesRepository;
 
 import java.util.HashMap;
 import java.util.List;
@@ -35,50 +37,64 @@ class DynamoDBPersistenceTests {
     private static final Logger LOGGER = LoggerFactory.getLogger(DynamoDBPersistenceTests.class);
     protected final static int CIRCLE_RADIUS = 11;
     protected final static String CIRCLE_COLOUR = "blue";
+    protected final static String RECTANGLE_COLOUR = "red";
     protected final static int MANY_CIRCLES_COUNT = 2000;
 
     /* Instance variable(s): */
     @Autowired
     protected CirclesRepository mCirclesRepository;
     @Autowired
+    protected RectanglesRepository mRectanglesRepository;
+    @Autowired
     protected DynamoDBMapper mDynamoDBMapper;
     @Autowired
     protected AmazonDynamoDB mAmazonDynamoDB;
 
     /**
-     * Prepares for each test by creating a table in DynamoDB for {@code Circle} entities
+     * Prepares for each test by creating tables in DynamoDB for the different type of entities
      * and set provisioned throughput for global secondary indexes.
-     * In addition, delete all {@code Circle} entities as to ensure that the table is
-     * empty before executing a test.
+     * In addition, delete all entities as to ensure that the table is empty before executing
+     * a test.
      */
     @BeforeEach
     public void setup() {
+        createDynamoDBTableForEntityType(Circle.class);
+        createDynamoDBTableForEntityType(Rectangle.class);
+
+        /* Delete any entities remaining from previous tests. */
+        mDynamoDBMapper.batchDelete(mCirclesRepository.findAll());
+        mDynamoDBMapper.batchDelete(mRectanglesRepository.findAll());
+    }
+
+    /**
+     * Creates a DynamoDB table for the supplied entity type.
+     *
+     * @param inEntityType Entity type for which to create table.
+     */
+    private void createDynamoDBTableForEntityType(final Class inEntityType) {
         try {
-            /* Prepare create table request. */
-            final CreateTableRequest theCreateCirclesTableRequest =
-                mDynamoDBMapper.generateCreateTableRequest(Circle.class);
-            final ProvisionedThroughput theCirclesTableProvisionedThroughput =
+            /* Prepare create entity table request. */
+            final CreateTableRequest theCreateTableRequest =
+                mDynamoDBMapper.generateCreateTableRequest(inEntityType);
+            final ProvisionedThroughput theEntityTableProvisionedThroughput =
                 new ProvisionedThroughput(10L, 10L);
-            theCreateCirclesTableRequest.setProvisionedThroughput(
-                theCirclesTableProvisionedThroughput);
+            theCreateTableRequest.setProvisionedThroughput(
+                theEntityTableProvisionedThroughput);
 
             /* Set provisioned throughput for global secondary indexes, if any. */
-            final List<GlobalSecondaryIndex> theCircleTableGlobalSecondaryIndexes =
-                theCreateCirclesTableRequest.getGlobalSecondaryIndexes();
-            if (theCircleTableGlobalSecondaryIndexes != null && theCircleTableGlobalSecondaryIndexes.size() > 0) {
-                theCreateCirclesTableRequest
+            final List<GlobalSecondaryIndex> theEntityTableGlobalSecondaryIndexes =
+                theCreateTableRequest.getGlobalSecondaryIndexes();
+            if (theEntityTableGlobalSecondaryIndexes != null && theEntityTableGlobalSecondaryIndexes.size() > 0) {
+                theCreateTableRequest
                     .getGlobalSecondaryIndexes()
-                    .forEach(v -> v.setProvisionedThroughput(theCirclesTableProvisionedThroughput));
+                    .forEach(v -> v.setProvisionedThroughput(theEntityTableProvisionedThroughput));
             }
 
-            /* Create table in which to persist circles. */
-            mAmazonDynamoDB.createTable(theCreateCirclesTableRequest);
+            /* Create table in which to persist entities. */
+            mAmazonDynamoDB.createTable(theCreateTableRequest);
         } catch (final ResourceInUseException theException) {
-            LOGGER.debug("Exception occurred creating table", theException);
+            LOGGER.debug("Exception occurred creating table for type " + inEntityType.getSimpleName(), theException);
         }
-
-        /* Delete any circles remaining from previous tests. */
-        mDynamoDBMapper.batchDelete(mCirclesRepository.findAll());
     }
 
     /**
@@ -90,10 +106,7 @@ class DynamoDBPersistenceTests {
     @Test
     public void persistOneCircleTest() {
         /* Create a circle to be persisted. */
-        final Circle theOriginalCircle = new Circle();
-        theOriginalCircle.setRadius(CIRCLE_RADIUS);
-        theOriginalCircle.setPosition(12, 14);
-        theOriginalCircle.setColour(CIRCLE_COLOUR);
+        final Circle theOriginalCircle = createCircle();
 
         /* Persist the circle. */
         final Circle theExpectedCircle = mCirclesRepository.save(theOriginalCircle);
@@ -109,6 +122,33 @@ class DynamoDBPersistenceTests {
         final Circle theFoundCircle = theCirclesList.get(0);
         LOGGER.info("Found circle last updated time: {}", theFoundCircle.getLastUpdateTime());
         Assertions.assertEquals(theExpectedCircle, theFoundCircle, "Circle properties should match");
+    }
+
+    /**
+     * Tests persisting one rectangle and retrieving all rectangles.
+     * Expected result:
+     * Retrieving all rectangles should yield one single rectangle.
+     * The retrieved rectangle should be identical to the persisted one.
+     */
+    @Test
+    public void persistOneRectangleTest() {
+        /* Create a rectangle to be persisted. */
+        final Rectangle theOriginalRectangle = createRectangle();
+
+        /* Persist the rectangle. */
+        final Rectangle theExpectedRectangle = mRectanglesRepository.save(theOriginalRectangle);
+        LOGGER.info("Rectangle last updated time: {}", theExpectedRectangle.getLastUpdateTime());
+
+        /* Find all rectangles in the repository. */
+        final List<Rectangle> theRectanglesList = IterableUtils.toList(mRectanglesRepository.findAll());
+
+        /* Verify the retrieved rectangle and its properties. */
+        Assertions.assertEquals(
+            1,
+            theRectanglesList.size(), "One rectangle should have been persisted");
+        final Rectangle theFoundRectangle = theRectanglesList.get(0);
+        LOGGER.info("Found rectangle last updated time: {}", theFoundRectangle.getLastUpdateTime());
+        Assertions.assertEquals(theExpectedRectangle, theFoundRectangle, "Rectangle properties should match");
     }
 
     /**
@@ -149,5 +189,69 @@ class DynamoDBPersistenceTests {
                 theActualCircle,
                 "Circle properties should match");
         }
+    }
+
+    /**
+     * Tests persisting one circle and one rectangle and retrieving all the
+     * circles and rectangles.
+     * Expected result:
+     * There should be one circle and one rectangle retrieved.
+     * The retrieved entities should be identical to the persisted ones.
+     */
+    @Test
+    public void persistMultipleEntityTypesTest() {
+        /* Create and persist one rectangle. */
+        final Rectangle theOriginalRectangle = createRectangle();
+        final Rectangle theExpectedRectangle = mRectanglesRepository.save(theOriginalRectangle);
+
+        /* Create and persist one circle. */
+        final Circle theOriginalCircle = createCircle();
+        final Circle theExpectedCircle = mCirclesRepository.save(theOriginalCircle);
+
+        /* Retrieve all circles and rectangles. */
+        final List<Circle> theCirclesList = IterableUtils.toList(mCirclesRepository.findAll());
+        final List<Rectangle> theRectanglesList = IterableUtils.toList(mRectanglesRepository.findAll());
+
+        /* Verify the retrieved circle and some of its properties. */
+        Assertions.assertEquals(
+            1,
+            theCirclesList.size(), "One circle should have been persisted");
+        final Circle theFoundCircle = theCirclesList.get(0);
+        Assertions.assertEquals(theExpectedCircle, theFoundCircle, "Circle properties should match");
+
+        /* Verify the retrieved rectangle and its properties. */
+        Assertions.assertEquals(
+            1,
+            theRectanglesList.size(), "One rectangle should have been persisted");
+        final Rectangle theFoundRectangle = theRectanglesList.get(0);
+        Assertions.assertEquals(theExpectedRectangle, theFoundRectangle, "Rectangle properties should match");
+
+    }
+
+    /**
+     * Creates a new rectangle setting its properties.
+     *
+     * @return A new rectangle.
+     */
+    protected Rectangle createRectangle() {
+        final Rectangle theRectangle = new Rectangle();
+        theRectangle.setPosition(15, 17);
+        theRectangle.setHeight(20);
+        theRectangle.setWidth(40);
+        theRectangle.setColour(CIRCLE_COLOUR);
+        return theRectangle;
+    }
+
+    /**
+     * Create a new circle setting its properties.
+     *
+     * @return A new circle.
+     */
+    protected Circle createCircle() {
+        final Circle theOriginalCircle = new Circle();
+        theOriginalCircle.setRadius(CIRCLE_RADIUS);
+        theOriginalCircle.setPosition(12, 14);
+        theOriginalCircle.setColour(CIRCLE_COLOUR);
+        return theOriginalCircle;
     }
 }
