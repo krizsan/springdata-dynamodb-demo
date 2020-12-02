@@ -4,8 +4,6 @@ import org.socialsignin.spring.data.dynamodb.repository.EnableScan;
 import org.springframework.data.repository.CrudRepository;
 import se.ivankrizsan.springdata.dynamodb.domain.Circle;
 
-import java.util.UUID;
-
 /**
  * DynamoDB repository containing {@code Circle}s.
  *
@@ -14,5 +12,4 @@ import java.util.UUID;
  */
 @EnableScan
 public interface CirclesRepository extends CrudRepository<Circle, String> {
-
 }

@@ -27,13 +27,13 @@ public class PersistenceConfiguration {
     @Value(("${amazon.dynamodb.endpoint}"))
     protected String mDynamoDBEndpoint;
     @Value("${amazon.aws.accesskey}")
-    protected String mDynamoDBAccessKey;
+    protected String mAWSAccessKey;
     @Value("${amazon.aws.secretkey}")
-    protected String mDynamoDBSecretKey;
+    protected String mAWSSecretKey;
     @Value("${amazon.dynamodb.tablenameprefix}")
     protected String mDynamoDBTableNamePrefix;
-    @Value("${amazon.dynamodb.region}")
-    protected String mDynamoDBRegion;
+    @Value("${amazon.aws.region}")
+    protected String mAWSRegion;
 
     /**
      * Creates a bean containing basic AWS credentials.
@@ -41,8 +41,8 @@ public class PersistenceConfiguration {
      * @return AWS credentials bean.
      */
     @Bean
-    public AWSCredentials dynamoDBCredentials() {
-        return new BasicAWSCredentials(mDynamoDBAccessKey, mDynamoDBSecretKey);
+    public AWSCredentials awsCredentials() {
+        return new BasicAWSCredentials(mAWSAccessKey, mAWSSecretKey);
     }
 
     /**
@@ -50,16 +50,16 @@ public class PersistenceConfiguration {
      * and being available at the endpoint injected into this configuration.
      * Must be named "amazonDynamoDB", otherwise Spring Data DynamoDB initialization will fail.
      *
-     * @param inDynamoDBCredentials DynamoDB credentials.
+     * @param inAWSCredentials AWS credentials.
      * @return DynamoDB client bean.
      */
     @Bean(destroyMethod = "shutdown")
-    public AmazonDynamoDB amazonDynamoDB(final AWSCredentials inDynamoDBCredentials) {
+    public AmazonDynamoDB amazonDynamoDB(final AWSCredentials inAWSCredentials) {
         return AmazonDynamoDBClientBuilder
             .standard()
-            .withCredentials(new AWSStaticCredentialsProvider(inDynamoDBCredentials))
+            .withCredentials(new AWSStaticCredentialsProvider(inAWSCredentials))
             .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(mDynamoDBEndpoint,
-                mDynamoDBRegion))
+                mAWSRegion))
             .build();
     }
 
