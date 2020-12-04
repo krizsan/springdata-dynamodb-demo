@@ -3,11 +3,12 @@ package se.ivankrizsan.springdata.dynamodb.demo;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
-import com.amazonaws.services.dynamodbv2.model.CreateTableResult;
+import com.amazonaws.services.dynamodbv2.model.DeleteTableRequest;
 import com.amazonaws.services.dynamodbv2.model.GlobalSecondaryIndex;
 import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
-import com.amazonaws.services.dynamodbv2.model.ResourceInUseException;
+import com.amazonaws.services.dynamodbv2.util.TableUtils;
 import org.apache.commons.collections4.IterableUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,19 +55,24 @@ class DynamoDBPersistenceTests {
     /**
      * Prepares for each test by creating tables in DynamoDB for the different type of entities
      * and set provisioned throughput for global secondary indexes.
-     * In addition, delete all entities as to ensure that the table is empty before executing
-     * a test.
      */
     @BeforeEach
     public void setup() {
         LOGGER.info("Doing setup...");
         createDynamoDBTableForEntityType(Circle.class);
         createDynamoDBTableForEntityType(Rectangle.class);
+    }
 
-        /* Delete any entities remaining from previous tests. */
-        LOGGER.info("Clearing tables...");
-        mDynamoDBMapper.batchDelete(mCirclesRepository.findAll());
-        mDynamoDBMapper.batchDelete(mRectanglesRepository.findAll());
+    /**
+     * Cleans up after each test by deleting the database tables created in preparation to the test.
+     */
+    @AfterEach
+    public void cleanup() {
+        LOGGER.info("Deleting database tables");
+        final DeleteTableRequest theDeleteCirclesTableRequest = mDynamoDBMapper.generateDeleteTableRequest(Circle.class);
+        TableUtils.deleteTableIfExists(mAmazonDynamoDB, theDeleteCirclesTableRequest);
+        final DeleteTableRequest theDeleteRectanglesTableRequest = mDynamoDBMapper.generateDeleteTableRequest(Rectangle.class);
+        TableUtils.deleteTableIfExists(mAmazonDynamoDB, theDeleteRectanglesTableRequest);
     }
 
     /**
@@ -74,7 +80,7 @@ class DynamoDBPersistenceTests {
      *
      * @param inEntityType Entity type for which to create table.
      */
-    private void createDynamoDBTableForEntityType(final Class inEntityType) {
+    protected void createDynamoDBTableForEntityType(final Class inEntityType) {
         LOGGER.info("About to create table for entity type {}", inEntityType.getSimpleName());
         try {
             /* Prepare create entity table request. */
@@ -95,10 +101,10 @@ class DynamoDBPersistenceTests {
             }
 
             /* Create table in which to persist entities. */
-            final CreateTableResult theCreateTableResult = mAmazonDynamoDB.createTable(theCreateTableRequest);
-            final String theTableStatus = theCreateTableResult.getTableDescription().getTableStatus();
-            LOGGER.info("Table status: {}", theTableStatus);
-        } catch (final ResourceInUseException theException) {
+            TableUtils.createTableIfNotExists(mAmazonDynamoDB, theCreateTableRequest);
+            TableUtils.waitUntilActive(mAmazonDynamoDB, theCreateTableRequest.getTableName());
+            LOGGER.info("Table {} now available", theCreateTableRequest.getTableName());
+        } catch (final Exception theException) {
             LOGGER.info("Exception occurred creating table for type {}: {} ", inEntityType.getSimpleName(), theException.getMessage());
         }
     }
