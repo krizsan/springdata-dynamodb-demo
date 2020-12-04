@@ -3,6 +3,7 @@ package se.ivankrizsan.springdata.dynamodb.demo;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
+import com.amazonaws.services.dynamodbv2.model.CreateTableResult;
 import com.amazonaws.services.dynamodbv2.model.GlobalSecondaryIndex;
 import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.ResourceInUseException;
@@ -58,10 +59,12 @@ class DynamoDBPersistenceTests {
      */
     @BeforeEach
     public void setup() {
+        LOGGER.info("Doing setup...");
         createDynamoDBTableForEntityType(Circle.class);
         createDynamoDBTableForEntityType(Rectangle.class);
 
         /* Delete any entities remaining from previous tests. */
+        LOGGER.info("Clearing tables...");
         mDynamoDBMapper.batchDelete(mCirclesRepository.findAll());
         mDynamoDBMapper.batchDelete(mRectanglesRepository.findAll());
     }
@@ -72,6 +75,7 @@ class DynamoDBPersistenceTests {
      * @param inEntityType Entity type for which to create table.
      */
     private void createDynamoDBTableForEntityType(final Class inEntityType) {
+        LOGGER.info("About to create table for entity type {}", inEntityType.getSimpleName());
         try {
             /* Prepare create entity table request. */
             final CreateTableRequest theCreateTableRequest =
@@ -91,9 +95,11 @@ class DynamoDBPersistenceTests {
             }
 
             /* Create table in which to persist entities. */
-            mAmazonDynamoDB.createTable(theCreateTableRequest);
+            final CreateTableResult theCreateTableResult = mAmazonDynamoDB.createTable(theCreateTableRequest);
+            final String theTableStatus = theCreateTableResult.getTableDescription().getTableStatus();
+            LOGGER.info("Table status: {}", theTableStatus);
         } catch (final ResourceInUseException theException) {
-            LOGGER.debug("Exception occurred creating table for type " + inEntityType.getSimpleName(), theException);
+            LOGGER.info("Exception occurred creating table for type {}: {} ", inEntityType.getSimpleName(), theException.getMessage());
         }
     }
 
