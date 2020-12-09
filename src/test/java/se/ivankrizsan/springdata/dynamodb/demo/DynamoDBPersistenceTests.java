@@ -3,19 +3,18 @@ package se.ivankrizsan.springdata.dynamodb.demo;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
-import com.amazonaws.services.dynamodbv2.model.DeleteTableRequest;
 import com.amazonaws.services.dynamodbv2.model.GlobalSecondaryIndex;
 import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.util.TableUtils;
 import org.apache.commons.collections4.IterableUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestPropertySource;
 import se.ivankrizsan.springdata.dynamodb.domain.Circle;
 import se.ivankrizsan.springdata.dynamodb.domain.Rectangle;
 import se.ivankrizsan.springdata.dynamodb.repositories.CirclesRepository;
@@ -34,13 +33,15 @@ import java.util.Map;
     PersistenceConfiguration.class,
     PersistenceTestConfiguration.class
 })
+@TestPropertySource("classpath:/application.properties")
 class DynamoDBPersistenceTests {
     /* Constant(s): */
     private static final Logger LOGGER = LoggerFactory.getLogger(DynamoDBPersistenceTests.class);
     protected final static int CIRCLE_RADIUS = 11;
     protected final static String CIRCLE_COLOUR = "blue";
     protected final static String RECTANGLE_COLOUR = "red";
-    protected final static int MANY_CIRCLES_COUNT = 2000;
+    protected final static int MANY_CIRCLES_COUNT = 500;
+    protected final static String[] COLOURS = { "red", "green", "blue", "purple", "black", "white" };
 
     /* Instance variable(s): */
     @Autowired
@@ -53,60 +54,13 @@ class DynamoDBPersistenceTests {
     protected AmazonDynamoDB mAmazonDynamoDB;
 
     /**
-     * Prepares for each test by creating tables in DynamoDB for the different type of entities
-     * and set provisioned throughput for global secondary indexes.
-     */
-    @BeforeEach
-    public void setup() {
-        LOGGER.info("Doing setup...");
-        createDynamoDBTableForEntityType(Circle.class);
-        createDynamoDBTableForEntityType(Rectangle.class);
-    }
-
-    /**
-     * Cleans up after each test by deleting the database tables created in preparation to the test.
+     * Cleans up after each test by deleting the contents of the database tables.
      */
     @AfterEach
     public void cleanup() {
-        LOGGER.info("Deleting database tables");
-        final DeleteTableRequest theDeleteCirclesTableRequest = mDynamoDBMapper.generateDeleteTableRequest(Circle.class);
-        TableUtils.deleteTableIfExists(mAmazonDynamoDB, theDeleteCirclesTableRequest);
-        final DeleteTableRequest theDeleteRectanglesTableRequest = mDynamoDBMapper.generateDeleteTableRequest(Rectangle.class);
-        TableUtils.deleteTableIfExists(mAmazonDynamoDB, theDeleteRectanglesTableRequest);
-    }
-
-    /**
-     * Creates a DynamoDB table for the supplied entity type.
-     *
-     * @param inEntityType Entity type for which to create table.
-     */
-    protected void createDynamoDBTableForEntityType(final Class inEntityType) {
-        LOGGER.info("About to create table for entity type {}", inEntityType.getSimpleName());
-        try {
-            /* Prepare create entity table request. */
-            final CreateTableRequest theCreateTableRequest =
-                mDynamoDBMapper.generateCreateTableRequest(inEntityType);
-            final ProvisionedThroughput theEntityTableProvisionedThroughput =
-                new ProvisionedThroughput(10L, 10L);
-            theCreateTableRequest.setProvisionedThroughput(
-                theEntityTableProvisionedThroughput);
-
-            /* Set provisioned throughput for global secondary indexes, if any. */
-            final List<GlobalSecondaryIndex> theEntityTableGlobalSecondaryIndexes =
-                theCreateTableRequest.getGlobalSecondaryIndexes();
-            if (theEntityTableGlobalSecondaryIndexes != null && theEntityTableGlobalSecondaryIndexes.size() > 0) {
-                theCreateTableRequest
-                    .getGlobalSecondaryIndexes()
-                    .forEach(v -> v.setProvisionedThroughput(theEntityTableProvisionedThroughput));
-            }
-
-            /* Create table in which to persist entities. */
-            TableUtils.createTableIfNotExists(mAmazonDynamoDB, theCreateTableRequest);
-            TableUtils.waitUntilActive(mAmazonDynamoDB, theCreateTableRequest.getTableName());
-            LOGGER.info("Table {} now available", theCreateTableRequest.getTableName());
-        } catch (final Exception theException) {
-            LOGGER.info("Exception occurred creating table for type {}: {} ", inEntityType.getSimpleName(), theException.getMessage());
-        }
+        LOGGER.info("Deleting contents of database tables");
+        mCirclesRepository.deleteAll();
+        mRectanglesRepository.deleteAll();
     }
 
     /**
@@ -241,6 +195,73 @@ class DynamoDBPersistenceTests {
     }
 
     /**
+     * Tests finding circles by colour.
+     * Uses a custom query method declared in the repository.
+     * Expected result:
+     * One circle should be found.
+     * The colour of the found circle should match the sought after colour.
+     */
+    @Test
+    public void findCirclesByColourTest() {
+        /* Create and persist circles of different colour. */
+        for (String theColour : COLOURS) {
+            final Circle theCircle = createCircle();
+            theCircle.setColour(theColour);
+            mCirclesRepository.save(theCircle);
+        }
+
+        /* Find all blue circles in the database. */
+        final List<Circle> theBlueCircles = mCirclesRepository.findCirclesByColour(CIRCLE_COLOUR);
+
+        /* Verify that only one circle was found and that it indeed is blue. */
+        Assertions.assertEquals(
+            1,
+            theBlueCircles.size(),
+            "Only one circle should have a matching colour");
+        final Circle theFoundCircle = theBlueCircles.get(0);
+        Assertions.assertEquals(
+            CIRCLE_COLOUR,
+            theFoundCircle.getColour(),
+            "The colour of the found circle should be blue");
+    }
+
+    /**
+     * Creates a DynamoDB table for the supplied entity type.
+     * Not currently used, but included as an example showing how to create a DynamoDB
+     * table programmatically.
+     *
+     * @param inEntityType Entity type for which to create table.
+     */
+    protected void createDynamoDBTableForEntityType(final Class inEntityType) {
+        LOGGER.info("About to create table for entity type {}", inEntityType.getSimpleName());
+        try {
+            /* Prepare create entity table request. */
+            final CreateTableRequest theCreateTableRequest =
+                mDynamoDBMapper.generateCreateTableRequest(inEntityType);
+            final ProvisionedThroughput theEntityTableProvisionedThroughput =
+                new ProvisionedThroughput(10L, 10L);
+            theCreateTableRequest.setProvisionedThroughput(
+                theEntityTableProvisionedThroughput);
+
+            /* Set provisioned throughput for global secondary indexes, if any. */
+            final List<GlobalSecondaryIndex> theEntityTableGlobalSecondaryIndexes =
+                theCreateTableRequest.getGlobalSecondaryIndexes();
+            if (theEntityTableGlobalSecondaryIndexes != null && theEntityTableGlobalSecondaryIndexes.size() > 0) {
+                theCreateTableRequest
+                    .getGlobalSecondaryIndexes()
+                    .forEach(v -> v.setProvisionedThroughput(theEntityTableProvisionedThroughput));
+            }
+
+            /* Create table in which to persist entities. */
+            TableUtils.createTableIfNotExists(mAmazonDynamoDB, theCreateTableRequest);
+            TableUtils.waitUntilActive(mAmazonDynamoDB, theCreateTableRequest.getTableName());
+            LOGGER.info("Table {} now available", theCreateTableRequest.getTableName());
+        } catch (final Exception theException) {
+            LOGGER.info("Exception occurred creating table for type {}: {} ", inEntityType.getSimpleName(), theException.getMessage());
+        }
+    }
+
+    /**
      * Creates a new rectangle setting its properties.
      *
      * @return A new rectangle.
@@ -250,7 +271,7 @@ class DynamoDBPersistenceTests {
         theRectangle.setPosition(15, 17);
         theRectangle.setHeight(20);
         theRectangle.setWidth(40);
-        theRectangle.setColour(CIRCLE_COLOUR);
+        theRectangle.setColour(RECTANGLE_COLOUR);
         return theRectangle;
     }
 

@@ -3,7 +3,9 @@ package se.ivankrizsan.springdata.dynamodb.domain;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 /**
  * Represents a circle shape with a given radius.
@@ -12,7 +14,9 @@ import lombok.NoArgsConstructor;
  */
 @Data
 @NoArgsConstructor
-@DynamoDBTable(tableName = "Circles")
+@ToString(callSuper = true)
+@EqualsAndHashCode(callSuper = true)
+@DynamoDBTable(tableName = "circles")
 public class Circle extends Shape {
     /* Constant(s): */
     public static final int DEFAULT_RADIUS = 10;

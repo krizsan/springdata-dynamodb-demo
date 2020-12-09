@@ -11,6 +11,7 @@ import org.socialsignin.spring.data.dynamodb.repository.config.EnableDynamoDBRep
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.repository.query.QueryLookupStrategy;
 import se.ivankrizsan.springdata.dynamodb.repositories.CirclesRepository;
 
 /**
@@ -19,7 +20,9 @@ import se.ivankrizsan.springdata.dynamodb.repositories.CirclesRepository;
  * @author Ivan Krizsan
  */
 @Configuration
-@EnableDynamoDBRepositories(basePackageClasses = CirclesRepository.class)
+@EnableDynamoDBRepositories(
+    basePackageClasses = CirclesRepository.class,
+    queryLookupStrategy = QueryLookupStrategy.Key.CREATE_IF_NOT_FOUND)
 public class PersistenceConfiguration {
     /* Constant(s): */
 
@@ -66,10 +69,12 @@ public class PersistenceConfiguration {
     /**
      * Creates a DynamoDB mapper configuration bean in order to prepend all tables names with
      * an application-specific prefix.
+     * Note that the name of the bean has to be dynamoDB-DynamoDBMapperConfig in order to
+     * override the DynamoDB mapper configuration bean from Spring Data DynamoDB.
      *
      * @return DynamoDB mapper configuration.
      */
-    @Bean
+    @Bean(name = "dynamoDB-DynamoDBMapperConfig")
     public DynamoDBMapperConfig dynamoDBMapperConfig() {
         return new DynamoDBMapperConfig.Builder()
             .withTableNameOverride(

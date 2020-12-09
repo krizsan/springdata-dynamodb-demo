@@ -9,6 +9,7 @@
         <version>2.3.6.RELEASE</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
+
     <groupId>se.ivankrizsan.springdata.dynamodb</groupId>
     <artifactId>springdata.dynamodb-demo</artifactId>
     <version>1.0.0-SNAPSHOT</version>
@@ -26,22 +27,21 @@
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.github.derjust</groupId>
+            <groupId>io.github.boostchicken</groupId>
             <artifactId>spring-data-dynamodb</artifactId>
-            <!-- Version 5.1.0 doesn't seem quite right. -->
-            <version>5.0.4</version>
+            <version>5.2.5</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-collections4</artifactId>
             <version>4.4</version>
         </dependency>
-
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

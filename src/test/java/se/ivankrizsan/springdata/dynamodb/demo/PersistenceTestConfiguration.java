@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.utility.DockerImageName;
@@ -22,7 +21,6 @@ import org.testcontainers.utility.DockerImageName;
  * @author Ivan Krizsan
  */
 @Configuration
-@EnableTransactionManagement
 public class PersistenceTestConfiguration {
     /* Constant(s): */
     private static final Logger LOGGER =
@@ -84,11 +82,13 @@ public class PersistenceTestConfiguration {
 
     /**
      * Creates a DynamoDB mapper bean using the supplied DynamoDB client.
+     * Note that the bean name must be dynamoDB-DynamoDBMapper in order to
+     * override the DynamoDB mapper bean from Spring Data DynamoDB.
      *
      * @param inDynamoDBClient DynamoDB client to be used by mapper.
      * @return DynamoDB mapper bean.
      */
-    @Bean
+    @Bean(name = "dynamoDB-DynamoDBMapper")
     public DynamoDBMapper dynamoDBMapper(final AmazonDynamoDB inDynamoDBClient) {
         return new DynamoDBMapper(inDynamoDBClient);
     }

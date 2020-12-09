@@ -2,7 +2,9 @@ package se.ivankrizsan.springdata.dynamodb.domain;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 /**
  * Abstract base class for shape entities located at a position in a two-dimensional
@@ -13,7 +15,9 @@ import lombok.NoArgsConstructor;
  * @author Ivan Krizsan
  */
 @Data
+@ToString(callSuper = true)
 @NoArgsConstructor
+@EqualsAndHashCode(callSuper = true)
 public abstract class Shape extends EntityWithStringId {
     /* Constant(s): */
 

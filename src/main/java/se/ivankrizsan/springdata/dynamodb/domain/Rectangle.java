@@ -3,7 +3,9 @@ package se.ivankrizsan.springdata.dynamodb.domain;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 /**
  * Represents a rectangle shape with a given height and width.
@@ -12,7 +14,9 @@ import lombok.NoArgsConstructor;
  */
 @Data
 @NoArgsConstructor
-@DynamoDBTable(tableName = "Rectangles")
+@ToString(callSuper = true)
+@EqualsAndHashCode(callSuper = true)
+@DynamoDBTable(tableName = "rectangles")
 public class Rectangle extends Shape {
     /* Constant(s): */
     public static final int DEFAULT_WIDTH = 10;
