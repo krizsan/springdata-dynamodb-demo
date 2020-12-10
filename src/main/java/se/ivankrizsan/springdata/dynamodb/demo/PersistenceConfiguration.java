@@ -11,7 +11,6 @@ import org.socialsignin.spring.data.dynamodb.repository.config.EnableDynamoDBRep
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.repository.query.QueryLookupStrategy;
 import se.ivankrizsan.springdata.dynamodb.repositories.CirclesRepository;
 
 /**
@@ -20,9 +19,7 @@ import se.ivankrizsan.springdata.dynamodb.repositories.CirclesRepository;
  * @author Ivan Krizsan
  */
 @Configuration
-@EnableDynamoDBRepositories(
-    basePackageClasses = CirclesRepository.class,
-    queryLookupStrategy = QueryLookupStrategy.Key.CREATE_IF_NOT_FOUND)
+@EnableDynamoDBRepositories(basePackageClasses = CirclesRepository.class)
 public class PersistenceConfiguration {
     /* Constant(s): */
 
